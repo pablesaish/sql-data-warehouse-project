@@ -6,17 +6,19 @@ Script Purpose:
     This stored procedure performs the ETL (Extract, Transform, Load) process to
     populate the 'silver' schema tables from the 'bronze' schema.
     Actions Performed:
-        - Truncates Silver tables.
-        - Inserts transformed and cleansed data from Bronze into Silver tables.
+      - Truncates Silver tables.
+      - Inserts transformed and cleansed data from Bronze into Silver tables.
 
 Parameters:
     None.
       This stored procedure does not accept any parameters or return any values.
 
 Usage Example:
-    EXEC Silver.load_silver;
+    EXEC silver.load_silver;
 ===============================================================================
 */
+
+EXEC silver.load_silver;
 
 CREATE OR ALTER PROCEDURE silver.load_silver AS
 BEGIN
@@ -103,15 +105,18 @@ BEGIN
             END                                         AS prd_line,     -- Map product line codes to descriptive values
             CAST(prd_start_dt AS DATE)                  AS prd_start_dt,
             CAST(
-                LEAD(prd_start_dt) OVER (PARTITION BY prd_key ORDER BY prd_start_dt) - 1
-                AS DATE
+                DATEADD(
+                    DAY,
+                    -1,
+                    LEAD(prd_start_dt) OVER (PARTITION BY prd_key ORDER BY prd_start_dt)
+                ) AS DATE
             ) AS prd_end_dt -- Calculate end date as one day before the next start date
         FROM bronze.crm_prd_info;
         SET @end_time = GETDATE();
         PRINT '>> Load Duration: ' + CAST(DATEDIFF(SECOND, @start_time, @end_time) AS NVARCHAR) + ' seconds';
         PRINT '>> -------------';
 
-        -- Loading crm_sales_details
+        -- Loading silver.crm_sales_details
         SET @start_time = GETDATE();
         PRINT '>> Truncating Table: silver.crm_sales_details';
         TRUNCATE TABLE silver.crm_sales_details;
@@ -163,7 +168,7 @@ BEGIN
         PRINT 'Loading ERP Tables';
         PRINT '------------------------------------------------';
 
-        -- Loading erp_cust_az12
+        -- Loading silver.erp_cust_az12
         SET @start_time = GETDATE();
         PRINT '>> Truncating Table: silver.erp_cust_az12';
         TRUNCATE TABLE silver.erp_cust_az12;
@@ -192,7 +197,7 @@ BEGIN
         PRINT '>> Load Duration: ' + CAST(DATEDIFF(SECOND, @start_time, @end_time) AS NVARCHAR) + ' seconds';
         PRINT '>> -------------';
 
-        -- Loading erp_loc_a101
+        -- Loading silver.erp_loc_a101
         SET @start_time = GETDATE();
         PRINT '>> Truncating Table: silver.erp_loc_a101';
         TRUNCATE TABLE silver.erp_loc_a101;
@@ -214,7 +219,7 @@ BEGIN
         PRINT '>> Load Duration: ' + CAST(DATEDIFF(SECOND, @start_time, @end_time) AS NVARCHAR) + ' seconds';
         PRINT '>> -------------';
 
-        -- Loading erp_px_cat_g1v2
+        -- Loading silver.erp_px_cat_g1v2
         SET @start_time = GETDATE();
         PRINT '>> Truncating Table: silver.erp_px_cat_g1v2';
         TRUNCATE TABLE silver.erp_px_cat_g1v2;
@@ -236,18 +241,18 @@ BEGIN
         PRINT '>> -------------';
 
         SET @batch_end_time = GETDATE();
-        PRINT '=========================================='
+        PRINT '==========================================';
         PRINT 'Loading Silver Layer is Completed';
         PRINT '   - Total Load Duration: ' + CAST(DATEDIFF(SECOND, @batch_start_time, @batch_end_time) AS NVARCHAR) + ' seconds';
-        PRINT '=========================================='
+        PRINT '==========================================';
 
     END TRY
     BEGIN CATCH
-        PRINT '=========================================='
-        PRINT 'ERROR OCCURRED DURING LOADING SILVER LAYER'
+        PRINT '==========================================';
+        PRINT 'ERROR OCCURRED DURING LOADING SILVER LAYER';
         PRINT 'Error Message: ' + ERROR_MESSAGE();
-        PRINT 'Error Number: ' + CAST (ERROR_NUMBER() AS NVARCHAR);
-        PRINT 'Error State: ' + CAST (ERROR_STATE() AS NVARCHAR);
-        PRINT '=========================================='
+        PRINT 'Error Number: ' + CAST(ERROR_NUMBER() AS NVARCHAR);
+        PRINT 'Error State: ' + CAST(ERROR_STATE() AS NVARCHAR);
+        PRINT '==========================================';
     END CATCH
-END
+END;
